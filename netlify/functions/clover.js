@@ -16,25 +16,22 @@ exports.handler = async (event) => {
 
   const p = event.queryStringParameters || {};
   const action = p.action || "items";
-
   let url;
+
   if (action === "items") {
     const limit = p.limit || "1000";
     const offset = p.offset || "0";
     url = `${CLOVER_BASE}/items?limit=${limit}&offset=${offset}`;
   } else if (action === "stock") {
-    const itemId = p.itemId || "";
-    url = itemId
-      ? `${CLOVER_BASE}/item_stocks/${itemId}`
-      : `${CLOVER_BASE}/item_stocks`;
+    url = `${CLOVER_BASE}/item_stocks`;
   } else {
     url = `${CLOVER_BASE}/${action}`;
   }
 
-  console.log("Action:", action, "URL:", url);
+  console.log("URL:", url, "Method:", event.httpMethod);
 
   try {
-    const fetchOptions = {
+    const opts = {
       method: event.httpMethod === "POST" ? "POST" : "GET",
       headers: {
         "Authorization": `Bearer ${CLOVER_TOKEN}`,
@@ -42,25 +39,15 @@ exports.handler = async (event) => {
         "Accept": "application/json"
       }
     };
-
     if (event.httpMethod === "POST" && event.body) {
-      fetchOptions.body = event.body;
+      opts.body = event.body;
     }
-
-    const resp = await fetch(url, fetchOptions);
+    const resp = await fetch(url, opts);
     const text = await resp.text();
     console.log("Status:", resp.status);
-
-    return {
-      statusCode: resp.status,
-      headers: corsHeaders,
-      body: text
-    };
+    return { statusCode: resp.status, headers: corsHeaders, body: text };
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ error: err.message })
-    };
+    console.error("Error:", err.message);
+    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) };
   }
 };
