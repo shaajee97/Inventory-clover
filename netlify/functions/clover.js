@@ -21,12 +21,12 @@ exports.handler = async (event) => {
   if (action === "items") {
     const limit = p.limit || "1000";
     const offset = p.offset || "0";
-    const expand = p.expand || "itemStock";
-    url = `${CLOVER_BASE}/items?limit=${limit}&offset=${offset}&expand=${expand}`;
-  } else if (action === "count") {
-    url = `${CLOVER_BASE}/items?limit=1`;
+    url = `${CLOVER_BASE}/items?limit=${limit}&offset=${offset}`;
   } else if (action === "stock") {
-    url = `${CLOVER_BASE}/item_stocks`;
+    const itemId = p.itemId || "";
+    url = itemId
+      ? `${CLOVER_BASE}/item_stocks/${itemId}`
+      : `${CLOVER_BASE}/item_stocks`;
   } else {
     url = `${CLOVER_BASE}/${action}`;
   }
