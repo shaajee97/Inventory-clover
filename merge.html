@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory Merge Tool</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  :root {
+    --bg:#F5F3EE;--surface:#FFF;--border:#E2DDD5;--text:#1A1814;--muted:#7A7268;
+    --green-bg:#E8F2DC;--green-border:#B8D98A;--green-text:#2A5A0A;--green-badge:#4A9010;
+    --amber-bg:#FDF0DC;--amber-border:#F0C870;--amber-text:#7A4A08;--amber-badge:#C07010;
+    --blue:#2860C8;--red-bg:#FEF0EE;--red-border:#F0C0B8;--red:#C03020;
+    --radius:12px;--radius-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  .header{background:var(--text);color:white;padding:20px 24px}
+  .header h1{font-size:20px;font-weight:600;letter-spacing:-0.3px;margin-bottom:4px}
+  .header p{font-size:13px;color:rgba(255,255,255,0.5)}
+  .main{max-width:860px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+  .card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+  .card-header{padding:14px 18px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:space-between}
+  .card-body{padding:18px}
+
+  /* UPLOAD ZONE */
+  .drop-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;transition:all 0.15s}
+  .drop-zone:hover,.drop-zone.drag{background:var(--bg);border-color:var(--blue)}
+  .drop-icon{font-size:36px;margin-bottom:10px}
+  .drop-title{font-size:15px;font-weight:600;margin-bottom:6px}
+  .drop-sub{font-size:13px;color:var(--muted);margin-bottom:14px}
+  .drop-btn{display:inline-block;padding:10px 20px;background:var(--text);color:white;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer}
+
+  /* FILE LIST */
+  .file-list{display:flex;flex-direction:column;gap:8px}
+  .file-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)}
+  .file-icon{font-size:20px;flex-shrink:0}
+  .file-info{flex:1;min-width:0}
+  .file-name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .file-meta{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px}
+  .file-remove{width:28px;height:28px;border:none;background:var(--red-bg);border-radius:50%;cursor:pointer;color:var(--red);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .file-remove:hover{background:var(--red-border)}
+
+  /* STATS */
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .stat-box{background:var(--bg);border-radius:var(--radius-sm);padding:14px;text-align:center;border:1px solid var(--border)}
+  .stat-n{font-size:24px;font-weight:600;font-family:'DM Mono',monospace;line-height:1}
+  .stat-l{font-size:11px;color:var(--muted);margin-top:4px}
+  .stat-n.green{color:var(--green-text)}.stat-n.amber{color:var(--amber-text)}.stat-n.blue{color:var(--blue)}
+
+  /* TABLE */
+  .tbl-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:var(--bg);padding:9px 12px;text-align:left;font-weight:600;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;letter-spacing:0.3px;text-transform:uppercase}
+  td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text)}
+  tr:last-child td{border-bottom:none}
+  tr.known td:first-child{border-left:3px solid var(--green-badge)}
+  tr.new-item td:first-child{border-left:3px solid var(--amber-badge)}
+  tr.conflict td{background:#FEF0EE}
+  tr.conflict td:first-child{border-left:3px solid var(--red)}
+  .badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap}
+  .badge.known{background:var(--green-badge);color:white}
+  .badge.new-item{background:var(--amber-badge);color:white}
+  .badge.conflict{background:var(--red);color:white}
+  .emp-tags{display:flex;gap:4px;flex-wrap:wrap}
+  .emp-tag{font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(40,96,200,0.12);color:var(--blue);font-family:'DM Mono',monospace}
+  .count-cell{font-family:'DM Mono',monospace;font-weight:600}
+  .conflict-detail{font-size:11px;color:var(--red);font-family:'DM Mono',monospace}
+
+  /* FILTER BAR */
+  .filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .filter-btn{padding:6px 14px;font-size:12px;font-weight:500;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
+  .filter-btn.active{background:var(--text);color:white;border-color:var(--text)}
+  .search-input{flex:1;min-width:160px;height:34px;padding:0 12px;font-size:13px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text);outline:none;font-family:'DM Sans',sans-serif}
+  .search-input:focus{border-color:var(--blue)}
+
+  /* ACTIONS */
+  .actions{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{padding:11px 18px;font-size:13px;font-weight:500;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px}
+  .btn:hover{background:var(--bg)}
+  .btn.primary{background:var(--text);color:white;border-color:var(--text)}
+  .btn.primary:hover{opacity:0.9}
+  .btn.danger{color:var(--red);border-color:var(--red-border);background:var(--red-bg)}
+
+  .empty{padding:32px;text-align:center;color:var(--muted);font-size:13px}
+  .empty-icon{font-size:32px;margin-bottom:8px}
+  .notice{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:14px}
+  .notice.warn{background:var(--amber-bg);border:1px solid var(--amber-border);color:var(--amber-text)}
+  .notice.info{background:#EEF4FF;border:1px solid #B8CEFF;color:#1840A0}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 Inventory Merge Tool</h1>
+  <p>Combine multiple employee count sheets into one master inventory</p>
+</div>
+
+<div class="main">
+
+  <!-- UPLOAD -->
+  <div class="card">
+    <div class="card-header">
+      <span>① Upload employee count sheets</span>
+      <span id="file-count-badge" style="font-size:11px;background:rgba(40,96,200,0.12);color:#2860C8;padding:3px 8px;border-radius:20px;display:none"></span>
+    </div>
+    <div class="card-body">
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('fu').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <div class="drop-icon">📁</div>
+        <div class="drop-title">Drop XLSX files here or tap to browse</div>
+        <div class="drop-sub">Upload each employee's exported count sheet<br>Files must be exported from the Inventory Counter tool</div>
+        <div class="drop-btn">Choose files</div>
+        <input type="file" id="fu" accept=".xlsx" multiple style="display:none" onchange="loadFiles(this.files)">
+      </div>
+      <div id="file-list" class="file-list" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="card" id="stats-card" style="display:none">
+    <div class="card-header">② Merge summary</div>
+    <div class="card-body">
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-n blue" id="s-files">0</div><div class="stat-l">Files merged</div></div>
+        <div class="stat-box"><div class="stat-n" id="s-total">0</div><div class="stat-l">Unique items</div></div>
+        <div class="stat-box"><div class="stat-n green" id="s-known">0</div><div class="stat-l">Known products</div></div>
+        <div class="stat-box"><div class="stat-n amber" id="s-new">0</div><div class="stat-l">New products</div></div>
+      </div>
+      <div id="conflict-notice" class="notice warn" style="margin-top:14px;display:none">
+        ⚠ <strong id="conflict-count">0</strong> items were counted by multiple employees with different counts — highlighted in red. Review and correct before exporting.
+      </div>
+    </div>
+  </div>
+
+  <!-- MASTER TABLE -->
+  <div class="card" id="table-card" style="display:none">
+    <div class="card-header">
+      <span>③ Master count</span>
+      <span id="row-count" style="font-size:11px;color:var(--muted)"></span>
+    </div>
+    <div class="card-body">
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setFilter('known',this)">🟢 Known</button>
+        <button class="filter-btn" onclick="setFilter('new',this)">🟡 New</button>
+        <button class="filter-btn" onclick="setFilter('conflict',this)">🔴 Conflicts</button>
+        <input type="text" class="search-input" id="search" placeholder="Search products..." oninput="renderTable()">
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>SKU / Barcode</th>
+              <th>Product Title</th>
+              <th>Variant</th>
+              <th>Price</th>
+              <th>Total Count</th>
+              <th>By Employee</th>
+              <th>Photo File</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="actions" id="export-actions" style="display:none">
+    <button class="btn primary" onclick="exportMaster()">⬇ Export master XLSX</button>
+    <button class="btn" onclick="exportNewOnly()">🟡 Export new products only</button>
+    <button class="btn" onclick="exportConflicts()">🔴 Export conflicts only</button>
+    <button class="btn danger" onclick="clearAll()">🗑 Start over</button>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+let uploadedFiles = []; // {name, rows}
+let masterItems = [];   // merged
+let activeFilter = 'all';
+
+function onDragOver(e){ e.preventDefault(); document.getElementById('drop-zone').classList.add('drag'); }
+function onDragLeave(){ document.getElementById('drop-zone').classList.remove('drag'); }
+function onDrop(e){ e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag'); loadFiles(e.dataTransfer.files); }
+
+function loadFiles(files){
+  Array.from(files).forEach(file=>{
+    if(!file.name.endsWith('.xlsx')){ alert(file.name+' is not an XLSX file — skip.'); return; }
+    if(uploadedFiles.find(f=>f.name===file.name)){ alert(file.name+' already loaded.'); return; }
+    const reader = new FileReader();
+    reader.onload = function(e){
+      let wb;
+      try{ wb = XLSX.read(new Uint8Array(e.target.result),{type:'array',raw:false,cellText:true}); }
+      catch(err){ alert('Cannot read '+file.name); return; }
+      // try 'All items' sheet first, fallback to first sheet
+      const sheetName = wb.SheetNames.includes('All items') ? 'All items' : wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws,{raw:false,defval:''});
+      uploadedFiles.push({name: file.name.replace('.xlsx',''), rows});
+      renderFileList();
+      merge();
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function removeFile(i){
+  uploadedFiles.splice(i,1);
+  renderFileList();
+  merge();
+}
+
+function renderFileList(){
+  const list = document.getElementById('file-list');
+  const badge = document.getElementById('file-count-badge');
+  if(!uploadedFiles.length){ list.innerHTML=''; badge.style.display='none'; return; }
+  badge.style.display='block';
+  badge.textContent = uploadedFiles.length+' file'+(uploadedFiles.length>1?'s':'')+' loaded';
+  list.innerHTML = uploadedFiles.map((f,i)=>`
+    <div class="file-item">
+      <div class="file-icon">📗</div>
+      <div class="file-info">
+        <div class="file-name">${f.name}</div>
+        <div class="file-meta">${f.rows.length} rows</div>
+      </div>
+      <button class="file-remove" onclick="removeFile(${i})">×</button>
+    </div>`).join('');
+}
+
+function toStr(v){ return (v==null)?'':String(v).trim(); }
+
+function merge(){
+  if(!uploadedFiles.length){
+    masterItems=[];
+    document.getElementById('stats-card').style.display='none';
+    document.getElementById('table-card').style.display='none';
+    document.getElementById('export-actions').style.display='none';
+    return;
+  }
+
+  // Build master map: key -> {item, counts by employee}
+  const map = {};
+
+  uploadedFiles.forEach(file=>{
+    file.rows.forEach(row=>{
+      const status = toStr(row['Status']).toLowerCase().includes('new') ? 'new' : 'known';
+      const identifier = toStr(row['SKU / Barcode']);
+      const title = toStr(row['Product Title']);
+      const variant = toStr(row['Variant']);
+      const price = toStr(row['Price']);
+      const count = parseInt(toStr(row['Count']))||0;
+      const photo = toStr(row['Photo Filename']);
+      const notes = toStr(row['Notes']);
+      if(!title && !identifier) return;
+
+      const key = identifier || title.toLowerCase();
+      if(!map[key]){
+        map[key] = {status, identifier, title, variant, price, photo, notes, employees:{}, totalCount:0};
+      }
+      map[key].employees[file.name] = (map[key].employees[file.name]||0) + count;
+      map[key].totalCount += count;
+      if(photo) map[key].photo = photo;
+    });
+  });
+
+  masterItems = Object.values(map).map(item=>{
+    const empCounts = Object.values(item.employees);
+    const hasConflict = empCounts.length > 1 && (Math.max(...empCounts) !== Math.min(...empCounts));
+    return {...item, hasConflict};
+  });
+
+  // sort: conflicts first, then new, then known
+  masterItems.sort((a,b)=>{
+    if(a.hasConflict && !b.hasConflict) return -1;
+    if(!a.hasConflict && b.hasConflict) return 1;
+    if(a.status==='new' && b.status!=='new') return -1;
+    if(a.status!=='new' && b.status==='new') return 1;
+    return a.title.localeCompare(b.title);
+  });
+
+  updateStats();
+  renderTable();
+  document.getElementById('stats-card').style.display='block';
+  document.getElementById('table-card').style.display='block';
+  document.getElementById('export-actions').style.display='flex';
+}
+
+function updateStats(){
+  const conflicts = masterItems.filter(i=>i.hasConflict);
+  document.getElementById('s-files').textContent = uploadedFiles.length;
+  document.getElementById('s-total').textContent = masterItems.length;
+  document.getElementById('s-known').textContent = masterItems.filter(i=>i.status==='known').length;
+  document.getElementById('s-new').textContent = masterItems.filter(i=>i.status==='new').length;
+  const cn = document.getElementById('conflict-notice');
+  if(conflicts.length){
+    cn.style.display='block';
+    document.getElementById('conflict-count').textContent=conflicts.length;
+  } else { cn.style.display='none'; }
+}
+
+function setFilter(f, btn){
+  activeFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function renderTable(){
+  const q = document.getElementById('search').value.toLowerCase();
+  let items = masterItems;
+  if(activeFilter==='known') items=items.filter(i=>i.status==='known'&&!i.hasConflict);
+  else if(activeFilter==='new') items=items.filter(i=>i.status==='new');
+  else if(activeFilter==='conflict') items=items.filter(i=>i.hasConflict);
+  if(q) items=items.filter(i=>i.title.toLowerCase().includes(q)||i.identifier.toLowerCase().includes(q));
+
+  document.getElementById('row-count').textContent = items.length+' items';
+
+  const tbody = document.getElementById('tbl-body');
+  if(!items.length){ tbody.innerHTML='<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--muted)">No items match</td></tr>'; return; }
+
+  tbody.innerHTML = items.map(item=>{
+    const isNew = item.status==='new';
+    const rowClass = item.hasConflict?'conflict':isNew?'new-item':'known';
+    const badge = item.hasConflict
+      ? '<span class="badge conflict">CONFLICT</span>'
+      : isNew ? '<span class="badge new-item">NEW</span>' : '<span class="badge known">KNOWN</span>';
+    const empDetail = Object.entries(item.employees).map(([emp,cnt])=>
+      `<span class="emp-tag">${emp}: ${cnt}</span>`).join('');
+    const conflictDetail = item.hasConflict
+      ? `<div class="conflict-detail">⚠ counts differ — verify</div>` : '';
+    return `<tr class="${rowClass}">
+      <td>${badge}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${item.identifier}</td>
+      <td>${item.title}${conflictDetail}</td>
+      <td>${item.variant||'—'}</td>
+      <td style="font-family:'DM Mono',monospace">${item.price||'—'}</td>
+      <td class="count-cell">${item.totalCount}</td>
+      <td><div class="emp-tags">${empDetail}</div></td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${item.photo||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function buildWB(items, title){
+  const wb = XLSX.utils.book_new();
+  const hdr = ['Status','SKU / Barcode','Product Title','Variant','Price','Total Count','Photo Filename','Counted By','Notes'];
+  const data = [hdr, ...items.map(item=>{
+    const empStr = Object.entries(item.employees).map(([e,c])=>e+': '+c).join(' | ');
+    const status = item.hasConflict ? 'CONFLICT — verify' : item.status==='known' ? 'Known' : 'New — needs info';
+    return [status, {t:'s',v:item.identifier}, item.title, item.variant||'', item.price||'',
+            item.totalCount, item.photo||'', empStr, item.notes||''];
+  })];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:18},{wch:18},{wch:32},{wch:14},{wch:10},{wch:12},{wch:28},{wch:40},{wch:32}];
+  const rng = XLSX.utils.decode_range(ws['!ref']);
+  for(let R=rng.s.r; R<=rng.e.r; R++){
+    const src = items[R-1];
+    let fillRgb = 'D3D1C7';
+    if(R>0){
+      if(src?.hasConflict) fillRgb = 'FAC0B8';
+      else if(src?.status==='new') fillRgb = 'FAC775';
+      else fillRgb = 'C0DD97';
+    }
+    for(let C=rng.s.c; C<=rng.e.c; C++){
+      const addr = XLSX.utils.encode_cell({r:R,c:C});
+      if(!ws[addr]) ws[addr]={t:'s',v:''};
+      ws[addr].s = {
+        fill:{patternType:'solid',fgColor:{rgb:fillRgb}},
+        font:{name:'Courier New',sz:10,bold:R===0},
+        border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}},
+        alignment:{vertical:'center'}
+      };
+      if(C===1&&R>0) ws[addr].t='s';
+    }
+  }
+  XLSX.utils.book_append_sheet(wb, ws, title);
+  return wb;
+}
+
+function exportMaster(){
+  if(!masterItems.length){alert('Nothing to export.');return;}
+  const wb = buildWB(masterItems, 'Master count');
+  const ni = masterItems.filter(i=>i.status==='new');
+  if(ni.length) XLSX.utils.book_append_sheet(wb, buildWB(ni,'New products (yellow)').Sheets['New products (yellow)'], 'New products (yellow)');
+  const ci = masterItems.filter(i=>i.hasConflict);
+  if(ci.length) XLSX.utils.book_append_sheet(wb, buildWB(ci,'Conflicts').Sheets['Conflicts'], 'Conflicts');
+  XLSX.writeFile(wb, 'master_inventory_'+new Date().toISOString().slice(0,10)+'.xlsx',{bookType:'xlsx',cellStyles:true});
+}
+
+function exportNewOnly(){
+  const ni = masterItems.filter(i=>i.status==='new');
+  if(!ni.length){alert('No new products found.');return;}
+  const wb = buildWB(ni,'New products');
+  XLSX.writeFile(wb,'new_products_'+new Date().toISOString().slice(0,10)+'.xlsx',{bookType:'xlsx',cellStyles:true});
+}
+
+function exportConflicts(){
+  const ci = masterItems.filter(i=>i.hasConflict);
+  if(!ci.length){alert('No conflicts found — great!');return;}
+  const wb = buildWB(ci,'Conflicts');
+  XLSX.writeFile(wb,'conflicts_'+new Date().toISOString().slice(0,10)+'.xlsx',{bookType:'xlsx',cellStyles:true});
+}
+
+function clearAll(){
+  if(!confirm('Clear all files and start over?'))return;
+  uploadedFiles=[];masterItems=[];
+  renderFileList();
+  document.getElementById('stats-card').style.display='none';
+  document.getElementById('table-card').style.display='none';
+  document.getElementById('export-actions').style.display='none';
+}
+</script>
+</body>
+</html>
