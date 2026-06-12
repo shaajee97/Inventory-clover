@@ -23,11 +23,14 @@ exports.handler = async (event) => {
     const offset = p.offset || "0";
     url = `${CLOVER_BASE}/items?limit=${limit}&offset=${offset}`;
   } else if (action === "stock") {
-    // itemId required for stock update
+    // POST — update stock quantity for an item
     const itemId = p.itemId || "";
-    if (!itemId) {
-      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "itemId required" }) };
-    }
+    if (!itemId) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "itemId required" }) };
+    url = `${CLOVER_BASE}/item_stocks/${itemId}`;
+  } else if (action === "getstock") {
+    // GET — fetch current stock quantity for an item
+    const itemId = p.itemId || "";
+    if (!itemId) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "itemId required" }) };
     url = `${CLOVER_BASE}/item_stocks/${itemId}`;
   } else {
     url = `${CLOVER_BASE}/${action}`;
@@ -49,7 +52,7 @@ exports.handler = async (event) => {
     }
     const resp = await fetch(url, opts);
     const text = await resp.text();
-    console.log("Status:", resp.status, "Body:", text.substring(0, 200));
+    console.log("Status:", resp.status);
     return { statusCode: resp.status, headers: corsHeaders, body: text };
   } catch (err) {
     console.error("Error:", err.message);
